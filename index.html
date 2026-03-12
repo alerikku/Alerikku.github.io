@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#9D81BA">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Matilde ✨">
+  <title>Matilde e le Stelline Magiche 🌈</title>
+  <link rel="manifest" href="./manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ════════════════════════════════════════════
+       RESET & ROOT
+       OnePlus 13R: 6.78" · 1264×2780px · 20.1:9
+       ════════════════════════════════════════════ */
+    :root {
+      --panna:   #FFF9F0;
+      --marrone: #4A3728;
+      --rosa:    #FFB7C5;
+      --viola:   #9D81BA;
+      --oro:     #FFD700;
+      --verde:   #7EC8A0;
+      --cielo:   #AEE4F5;
+      --accento: #FF6B6B;
+      --shadow:  rgba(74,55,40,0.12);
+
+      /* Proporzioni schermo 13R: top safe-area importante */
+      --safe-top:    env(safe-area-inset-top, 40px);
+      --safe-bottom: env(safe-area-inset-bottom, 16px);
+
+      /* Altezza UI calibrata per aspect ratio 20:9 */
+      --visual-flex: 1.3;
+      --ui-flex:     0.7;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body, html {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: #c8b4e8;
+      font-family: 'Nunito', sans-serif;
+      color: var(--marrone);
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #game-outer {
+      width: 100%;
+      max-width: 480px;       /* OnePlus 13R ~412dp di larghezza reale */
+      height: 100dvh;
+      background: white;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(80,40,120,0.2);
+    }
+
+    /* ─── PROGRESS BAR ─── */
+    #progress-bar {
+      position: absolute; top: 0; left: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--rosa), var(--viola), var(--oro));
+      width: 0%;
+      transition: width 0.7s cubic-bezier(.4,0,.2,1);
+      z-index: 200;
+    }
+
+    /* ─── HEADER (con safe-area) ─── */
+    #header {
+      position: absolute; top: 0; width: 100%;
+      padding: calc(var(--safe-top) + 4px) 18px 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 100; pointer-events: none;
+    }
+
+    .hud-badge {
+      background: rgba(255,255,255,0.93);
+      padding: 7px 14px; border-radius: 22px;
+      box-shadow: 0 3px 14px var(--shadow);
+      font-family: 'Baloo 2', cursive; font-weight: 800;
+      display: flex; align-items: center; gap: 7px;
+      font-size: 1rem;
+    }
+
+    #score-display { border: 2px solid var(--oro); }
+    #score-display.pop {
+      animation: scorePop 0.4s cubic-bezier(.36,.07,.19,.97);
+    }
+    @keyframes scorePop {
+      0%  { transform: scale(1); }
+      35% { transform: scale(1.28) rotate(-4deg); }
+      65% { transform: scale(0.93) rotate(2deg); }
+      100%{ transform: scale(1)    rotate(0); }
+    }
+
+    #date-badge {
+      border: 2px solid var(--viola);
+      font-size: 0.78rem;
+      pointer-events: all;
+      cursor: pointer;
+      gap: 5px;
+    }
+    #date-badge:active { opacity: 0.7; }
+
+    #inventory-display {
+      border: 2px solid var(--rosa);
+      min-width: 48px; gap: 4px; font-size: 1.05rem;
+    }
+
+    .inventory-item {
+      display: inline-block;
+      animation: itemPop 0.4s cubic-bezier(.36,.07,.19,.97);
+    }
+    @keyframes itemPop {
+      0%  { transform: scale(0) rotate(-20deg); opacity:0; }
+      70% { transform: scale(1.2) rotate(5deg); opacity:1; }
+      100%{ transform: scale(1)   rotate(0);    opacity:1; }
+    }
+
+    /* ─── VISUAL AREA (più alta su 20:9) ─── */
+    #visual-area {
+      flex: var(--visual-flex);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #scene-svg {
+      width: 100%; height: 100%;
+      position: absolute; top: 0; left: 0;
+      transition: opacity 0.45s ease;
+    }
+    #scene-svg.fade-out { opacity: 0; }
+
+    /* ─── UI AREA ─── */
+    #ui-area {
+      flex: var(--ui-flex);
+      padding: 22px 22px calc(var(--safe-bottom) + 10px);
+      background: white;
+      border-top-left-radius:  42px;
+      border-top-right-radius: 42px;
+      margin-top: -42px;
+      z-index: 10;
+      box-shadow: 0 -18px 40px rgba(0,0,0,0.06);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    #content-animator {
+      display: flex; flex-direction: column;
+      height: 100%;
+      transition: opacity 0.25s ease, transform 0.3s ease;
+    }
+    #content-animator.slide-out {
+      opacity: 0; transform: translateY(16px);
+    }
+    #content-animator.slide-in {
+      animation: slideIn 0.38s ease-out forwards;
+    }
+    @keyframes slideIn {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0);    }
+    }
+
+    h2 {
+      font-family: 'Baloo 2', cursive;
+      font-size: clamp(1.3rem, 4.5vw, 1.6rem);
+      margin: 0 0 8px;
+      line-height: 1.2;
+      color: var(--marrone);
+    }
+
+    #story-text {
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
+      line-height: 1.6;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      max-height: 18vh;   /* calibrato per 13R: c'è spazio */
+    }
+
+    .choices-grid {
+      display: grid; gap: 9px;
+      flex: 1; align-content: start;
+      overflow-y: auto;
+    }
+
+    .btn-choice {
+      background: white;
+      border: 2.5px solid #EFEFEF;
+      padding: 13px 15px;
+      border-radius: 18px; cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      font-family: 'Baloo 2', cursive;
+      font-size: clamp(0.95rem, 3.2vw, 1.05rem);
+      text-align: left;
+      transition: transform .18s ease, border-color .18s ease,
+                  background .18s ease, box-shadow .18s ease;
+      color: var(--marrone);
+      position: relative; overflow: hidden;
+      min-height: 52px;    /* touch target OnePlus ~7mm = 48dp */
+    }
+    .btn-choice::before {
+      content:''; position:absolute; inset:0; border-radius:16px;
+      background: linear-gradient(135deg,rgba(255,183,197,.18),rgba(157,129,186,.12));
+      opacity:0; transition:opacity .2s;
+    }
+    .btn-choice:hover { border-color:var(--rosa); transform:translateY(-2px); box-shadow:0 6px 18px rgba(255,183,197,.35); }
+    .btn-choice:hover::before { opacity:1; }
+    .btn-choice:active { transform:scale(0.96); background:#FFF5F7; }
+    .btn-choice.gold:hover { border-color:var(--oro); box-shadow:0 6px 18px rgba(255,215,0,.3); }
+    .btn-emoji { font-size:1.65rem; flex-shrink:0; }
+    .btn-pts {
+      margin-left:auto; background:var(--oro);
+      color:#5a3e00; font-size:.72rem;
+      padding:2px 7px; border-radius:10px;
+      font-family:'Baloo 2',cursive; font-weight:800; flex-shrink:0;
+    }
+
+    /* ─── LOADING OVERLAY ─── */
+    #loading-overlay {
+      position:absolute; inset:0; z-index:500;
+      background:rgba(255,249,240,0.97);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:18px;
+      opacity:1; transition:opacity .4s ease;
+    }
+    #loading-overlay.hidden { opacity:0; pointer-events:none; }
+
+    .loading-star {
+      font-size:3.5rem;
+      animation: spinStar 1.8s ease-in-out infinite;
+    }
+    @keyframes spinStar {
+      0%   { transform:rotate(0)   scale(1);    }
+      50%  { transform:rotate(180deg) scale(1.2); }
+      100% { transform:rotate(360deg) scale(1); }
+    }
+    .loading-text {
+      font-family:'Baloo 2',cursive; font-size:1.2rem;
+      color:var(--viola); text-align:center; padding:0 30px;
+    }
+    .loading-dots span {
+      animation: blink 1.2s infinite;
+      font-size:1.4rem;
+    }
+    .loading-dots span:nth-child(2){ animation-delay:.2s; }
+    .loading-dots span:nth-child(3){ animation-delay:.4s; }
+    @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+    /* ─── ERROR OVERLAY ─── */
+    #error-overlay {
+      position:absolute; inset:0; z-index:500;
+      background:rgba(255,249,240,0.97);
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:14px;
+      opacity:0; pointer-events:none;
+      transition:opacity .3s;
+      padding:30px;
+    }
+    #error-overlay.show { opacity:1; pointer-events:all; }
+    .err-icon { font-size:3rem; }
+    .err-msg {
+      font-family:'Baloo 2',cursive; font-size:1.1rem;
+      color:var(--marrone); text-align:center; line-height:1.5;
+    }
+    .err-btn {
+      background:var(--viola); color:white;
+      border:none; border-radius:20px;
+      padding:12px 28px; font-family:'Baloo 2',cursive;
+      font-size:1rem; cursor:pointer; margin-top:8px;
+    }
+    .err-btn:active { opacity:.8; }
+
+    /* ─── FLOATING STARS ─── */
+    .floating-star {
+      position:fixed; pointer-events:none; z-index:999;
+      font-size:1.5rem;
+      animation:floatUp 1.3s ease-out forwards;
+    }
+    @keyframes floatUp {
+      0%  { opacity:1; transform:translateY(0) scale(1) rotate(0); }
+      100%{ opacity:0; transform:translateY(-85px) scale(1.4) rotate(25deg); }
+    }
+
+    /* ─── VICTORY FLASH ─── */
+    #victory-overlay {
+      position:absolute; inset:0; z-index:300;
+      pointer-events:none;
+    }
+    #victory-overlay.show {
+      animation:vFlash .7s ease-out;
+    }
+    @keyframes vFlash {
+      0%  { background:rgba(255,215,0,0);    }
+      30% { background:rgba(255,215,0,0.35); }
+      100%{ background:rgba(255,215,0,0);    }
+    }
+
+    /* ─── DAY BADGE strip ─── */
+    #day-strip {
+      position:absolute; bottom: calc(var(--ui-flex-px, 42%) + 6px);
+      left:50%; transform:translateX(-50%);
+      background:rgba(255,255,255,0.9);
+      border:2px solid var(--viola);
+      border-radius:16px; padding:4px 14px;
+      font-family:'Baloo 2',cursive; font-size:.82rem;
+      color:var(--viola); white-space:nowrap;
+      z-index:50; pointer-events:none;
+      box-shadow:0 3px 10px var(--shadow);
+    }
+  </style>
+</head>
+<body>
+
+<div id="game-outer">
+  <div id="progress-bar"></div>
+
+  <div id="header">
+    <div id="score-display" class="hud-badge">⭐ <span id="points">0</span></div>
+    <div id="date-badge"    class="hud-badge" title="Storia di oggi" onclick="showDateInfo()">📅 <span id="date-label">...</span></div>
+    <div id="inventory-display" class="hud-badge"><span id="inv-items">🎒</span></div>
+  </div>
+
+  <div id="visual-area">
+    <svg id="scene-svg" viewBox="0 0 500 360" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="day-strip">✨ Storia del giorno</div>
+  </div>
+
+  <div id="ui-area">
+    <div id="content-animator">
+      <h2 id="title">Caricamento…</h2>
+      <p  id="story-text"></p>
+      <div id="choices" class="choices-grid"></div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-overlay">
+    <div class="loading-star">🌟</div>
+    <div class="loading-text">Matilde sta preparando<br>la storia di oggi…</div>
+    <div class="loading-dots"><span>✨</span><span>✨</span><span>✨</span></div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-overlay">
+    <div class="err-icon">🌧️</div>
+    <div class="err-msg" id="err-msg">Ops! Non riesco a trovare la storia di oggi. Controlla la connessione!</div>
+    <button class="err-btn" onclick="retryLoad()">Riprova 🔄</button>
+    <button class="err-btn" style="background:var(--verde)" onclick="loadFallback()">Usa storia classica 📖</button>
+  </div>
+
+  <div id="victory-overlay"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG — inserisci qui la tua API key Anthropic
+// ═══════════════════════════════════════════════
+const API_KEY = 'LA_TUA_API_KEY_QUI';  // ← sostituisci con la tua chiave
+
+// ═══════════════════════════════════════════════
+//  COSTANTI
+// ═══════════════════════════════════════════════
+const TOTAL_SCENES = 5;
+
+// ═══════════════════════════════════════════════
+//  STATO
+// ═══════════════════════════════════════════════
+let gameState = { score:0, inventory:[], currentScene:'s0', visitedScenes:new Set() };
+let currentStoryData = null;
+
+// ═══════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════
+const titleEl      = document.getElementById('title');
+const storyEl      = document.getElementById('story-text');
+const choicesEl    = document.getElementById('choices');
+const pointsEl     = document.getElementById('points');
+const progressBar  = document.getElementById('progress-bar');
+const scoreDisplay = document.getElementById('score-display');
+const invItems     = document.getElementById('inv-items');
+const sceneSVG     = document.getElementById('scene-svg');
+const contentAnim  = document.getElementById('content-animator');
+const victoryOvl   = document.getElementById('victory-overlay');
+const loadingOvl   = document.getElementById('loading-overlay');
+const errorOvl     = document.getElementById('error-overlay');
+const dateLabel    = document.getElementById('date-label');
+const dayStrip     = document.getElementById('day-strip');
+
+// ═══════════════════════════════════════════════
+//  DATA ODIERNA (chiave cache)
+// ═══════════════════════════════════════════════
+function todayKey() {
+  const d = new Date();
+  return `matilde_${d.getFullYear()}_${d.getMonth()+1}_${d.getDate()}`;
+}
+
+function todayLabel() {
+  return new Date().toLocaleDateString('it-IT',{day:'numeric',month:'short'});
+}
+
+function showDateInfo() {
+  alert(`📅 Storia del ${new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}\n\nOgni giorno una nuova avventura magica per Matilde! ✨`);
+}
+
+// ═══════════════════════════════════════════════
+//  SCENE SVG (backlist di ambientazioni)
+// ═══════════════════════════════════════════════
+const SVG_SCENES = {
+  bedroom: `
+    <defs>
+      <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffdde8"/><stop offset="100%" stop-color="#fff5c8"/></linearGradient>
+    </defs>
+    <rect width="500" height="360" fill="url(#bg1)"/>
+    <circle cx="405" cy="58" r="36" fill="#FFE066" opacity="0.9"/>
+    <circle cx="405" cy="58" r="52" fill="#FFE066" opacity="0.18"/>
+    <ellipse cx="80" cy="70" rx="60" ry="22" fill="white" opacity="0.85"/>
+    <ellipse cx="112" cy="56" rx="40" ry="19" fill="white" opacity="0.9"/>
+    <ellipse cx="265" cy="85" rx="48" ry="17" fill="white" opacity="0.7"/>
+    <rect x="0" y="255" width="500" height="105" fill="#f7e8c8"/>
+    <rect x="0" y="170" width="500" height="92" fill="#ffe4cf"/>
+    <rect x="175" y="173" width="105" height="72" rx="8" fill="#c8ecff" stroke="#a07850" stroke-width="3"/>
+    <line x1="227" y1="173" x2="227" y2="245" stroke="#a07850" stroke-width="2"/>
+    <line x1="175" y1="209" x2="280" y2="209" stroke="#a07850" stroke-width="2"/>
+    <path d="M175 171 Q160 202 173 245" fill="none" stroke="#FFB7C5" stroke-width="14" stroke-linecap="round"/>
+    <path d="M280 171 Q295 202 282 245" fill="none" stroke="#FFB7C5" stroke-width="14" stroke-linecap="round"/>
+    <rect x="45" y="222" width="208" height="78" rx="12" fill="#c8a0d0"/>
+    <rect x="45" y="207" width="218" height="40" rx="10" fill="#e0bce8"/>
+    <rect x="45" y="222" width="52" height="78" rx="8" fill="#b088c0"/>
+    <ellipse cx="108" cy="213" rx="30" ry="14" fill="white" opacity="0.9"/>
+    <ellipse cx="165" cy="213" rx="30" ry="14" fill="#ffd0e8" opacity="0.9"/>
+    <rect x="50" y="248" width="192" height="47" rx="8" fill="#a870c0" opacity="0.7"/>
+    <text x="105" y="278" font-size="24" opacity="0.8">⭐🌙✨</text>
+    <ellipse cx="335" cy="258" rx="35" ry="26" fill="#e8e0d0"/>
+    <ellipse cx="335" cy="238" rx="20" ry="21" fill="#e8e0d0"/>
+    <polygon points="320,224 325,205 330,224" fill="#e8e0d0"/>
+    <polygon points="340,224 345,205 350,224" fill="#e8e0d0"/>
+    <circle cx="328" cy="238" r="5" fill="#4a3060"/>
+    <circle cx="342" cy="238" r="5" fill="#4a3060"/>
+    <path d="M330 248 Q335 253 340 248" fill="none" stroke="#c08090" stroke-width="2"/>
+    <rect x="372" y="238" width="68" height="58" rx="8" fill="#c06030"/>
+    <rect x="367" y="232" width="78" height="18" rx="6" fill="#d07040"/>
+    <line x1="406" y1="232" x2="406" y2="296" stroke="#ffd700" stroke-width="3"/>
+    <line x1="367" y1="241" x2="445" y2="241" stroke="#ffd700" stroke-width="3"/>
+    <circle cx="406" cy="232" r="9" fill="#ffd700"/>
+    <text x="380" y="278" font-size="17">✨💫⭐</text>`,
+
+  garden: `
+    <defs>
+      <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#87CEEB"/><stop offset="100%" stop-color="#e0f7c0"/></linearGradient>
+    </defs>
+    <rect width="500" height="360" fill="url(#bg2)"/>
+    <circle cx="435" cy="58" r="38" fill="#FFE066" opacity="0.95"/>
+    <circle cx="435" cy="58" r="55" fill="#FFE066" opacity="0.18"/>
+    <ellipse cx="95"  cy="72" rx="62" ry="23" fill="white" opacity="0.9"/>
+    <ellipse cx="128" cy="57" rx="44" ry="21" fill="white" opacity="0.95"/>
+    <ellipse cx="260" cy="85" rx="52" ry="19" fill="white" opacity="0.8"/>
+    <ellipse cx="250" cy="322" rx="278" ry="82" fill="#7EC8A0"/>
+    <rect x="0" y="258" width="500" height="102" fill="#7EC8A0"/>
+    <ellipse cx="250" cy="260" rx="278" ry="32" fill="#a8e0b0"/>
+    <ellipse cx="58"  cy="205" rx="52" ry="60" fill="#5aaa70" opacity="0.8"/>
+    <rect x="50" y="238" width="17" height="62" fill="#6a4428"/>
+    <ellipse cx="445" cy="198" rx="55" ry="62" fill="#50a060" opacity="0.8"/>
+    <rect x="437" y="232" width="17" height="66" fill="#6a4428"/>
+    <ellipse cx="250" cy="162" rx="74" ry="82" fill="#68b878"/>
+    <ellipse cx="250" cy="135" rx="58" ry="64" fill="#78c888"/>
+    <rect x="241" y="228" width="20" height="52" fill="#8a5530"/>
+    <text x="128" y="276" font-size="25">🌸</text>
+    <text x="200" y="284" font-size="21">🌼</text>
+    <text x="318" y="272" font-size="23">🌺</text>
+    <text x="380" y="280" font-size="21">🌸</text>
+    <text x="62" y="275" font-size="19">🌻</text>
+    <ellipse cx="298" cy="262" rx="22" ry="18" fill="#c87830"/>
+    <ellipse cx="298" cy="246" rx="14" ry="14" fill="#c87830"/>
+    <polygon points="287,237 292,222 297,237" fill="#c87830"/>
+    <polygon points="297,237 302,222 307,237" fill="#c87830"/>
+    <path d="M318 262 Q345 240 334 218 Q322 202 310 216" fill="none" stroke="#c87830" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="293" cy="246" r="3.5" fill="#2a1a08"/>
+    <circle cx="303" cy="246" r="3.5" fill="#2a1a08"/>
+    <path d="M291 255 Q295 250 299 255 Q295 260 291 255" fill="#e04060"/>
+    <path d="M305 255 Q301 250 299 255 Q301 260 305 255" fill="#e04060"/>
+    <circle cx="299" cy="255" r="2.5" fill="#c02040"/>
+    <ellipse cx="338" cy="212" rx="42" ry="24" fill="white" stroke="#ddd" stroke-width="2"/>
+    <polygon points="322,230 312,248 330,232" fill="white" stroke="#ddd" stroke-width="1"/>
+    <text x="320" y="218" font-size="13" fill="#4a3728" font-family="sans-serif">Sfidami!</text>`,
+
+  forest: `
+    <defs>
+      <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a3a2a"/><stop offset="100%" stop-color="#2a5a3a"/></linearGradient>
+    </defs>
+    <rect width="500" height="360" fill="url(#bg3)"/>
+    <circle cx="250" cy="80" r="45" fill="#ffe066" opacity="0.15"/>
+    <circle cx="250" cy="80" r="28" fill="#fff8c0" opacity="0.4"/>
+    <text x="216" y="96" font-size="35">🌙</text>
+    <ellipse cx="250" cy="335" rx="280" ry="75" fill="#1a4a28"/>
+    <rect x="0" y="275" width="500" height="85" fill="#1a4a28"/>
+    <ellipse cx="68"  cy="232" rx="58" ry="130" fill="#0d3520" opacity="0.9"/>
+    <ellipse cx="432" cy="228" rx="58" ry="135" fill="#0d3520" opacity="0.9"/>
+    <ellipse cx="160" cy="218" rx="48" ry="110" fill="#0f3e25" opacity="0.85"/>
+    <ellipse cx="342" cy="222" rx="48" ry="115" fill="#0f3e25" opacity="0.85"/>
+    <text x="80"  y="285" font-size="20" opacity="0.7">🌿</text>
+    <text x="380" y="278" font-size="20" opacity="0.7">🌿</text>
+    <text x="210" y="292" font-size="18" opacity="0.6">🍄</text>
+    <text x="280" y="295" font-size="16" opacity="0.6">🍄</text>
+    <text x="38"  y="175" font-size="20" opacity="0.5">✨</text>
+    <text x="452" y="168" font-size="18" opacity="0.4">✨</text>
+    <text x="188" y="155" font-size="16" opacity="0.4">💫</text>
+    <text x="310" y="162" font-size="18" opacity="0.45">✨</text>`,
+
+  stream: `
+    <defs>
+      <linearGradient id="bg4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a8d8f0"/><stop offset="100%" stop-color="#d0f0c0"/></linearGradient>
+      <linearGradient id="wtr"  x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#60b8e0"/><stop offset="50%" stop-color="#88d8f8"/><stop offset="100%" stop-color="#60b8e0"/></linearGradient>
+    </defs>
+    <rect width="500" height="360" fill="url(#bg4)"/>
+    <path d="M0 205 Q250-42 500 205" fill="none" stroke="#FF6B6B" stroke-width="9" opacity="0.6"/>
+    <path d="M22 216 Q250-18 478 216" fill="none" stroke="#FFD700" stroke-width="9" opacity="0.6"/>
+    <path d="M44 226 Q250  5 456 226" fill="none" stroke="#7EC8A0" stroke-width="9" opacity="0.6"/>
+    <path d="M66 234 Q250 22 434 234" fill="none" stroke="#60A0E0" stroke-width="9" opacity="0.6"/>
+    <path d="M88 241 Q250 38 412 241" fill="none" stroke="#9D81BA" stroke-width="9" opacity="0.6"/>
+    <ellipse cx="250" cy="328" rx="282" ry="74" fill="#7EC8A0"/>
+    <rect x="0" y="272" width="500" height="88" fill="#7EC8A0"/>
+    <path d="M0 298 Q125 272 250 282 Q375 292 500 268" fill="url(#wtr)" opacity="0.88"/>
+    <path d="M0 304 Q125 280 250 290 Q375 300 500 276" fill="#a8e8ff" opacity="0.4"/>
+    <ellipse cx="155" cy="288" rx="19" ry="12" fill="#c0b0a0"/>
+    <ellipse cx="298" cy="283" rx="15" ry="10" fill="#d0c0b0"/>
+    <ellipse cx="408" cy="292" rx="17" ry="11" fill="#b8a898"/>
+    <path d="M228 276 Q228 263 240 262 Q252 261 252 271 Q252 261 264 262 Q276 263 276 276 Q276 290 252 300 Q228 290 228 276Z" fill="#d08060"/>
+    <circle cx="252" cy="283" r="24" fill="#ffd700" opacity="0.22"/>
+    <text x="240" y="290" font-size="19">🗝️</text>
+    <text x="48"  y="276" font-size="21">🌿</text>
+    <text x="428" y="274" font-size="21">🌿</text>
+    <text x="182" y="208" font-size="23" opacity="0.55" transform="rotate(-12,182,208)">♪</text>
+    <text x="298" y="192" font-size="19" opacity="0.5"  transform="rotate(8,298,192)">♫</text>
+    <text x="358" y="216" font-size="21" opacity="0.5"  transform="rotate(-6,358,216)">♪</text>`,
+
+  win: `
+    <defs>
+      <radialGradient id="bg5" cx="50%" cy="50%" r="70%"><stop offset="0%" stop-color="#fff5c0"/><stop offset="100%" stop-color="#ffd0e8"/></radialGradient>
+    </defs>
+    <rect width="500" height="360" fill="url(#bg5)"/>
+    <text x="28"  y="65"  font-size="30" opacity="0.7">🌟</text>
+    <text x="432" y="52"  font-size="26" opacity="0.7">✨</text>
+    <text x="68"  y="155" font-size="22" opacity="0.5">⭐</text>
+    <text x="402" y="135" font-size="28" opacity="0.6">🌟</text>
+    <text x="8"   y="258" font-size="24" opacity="0.55">✨</text>
+    <text x="462" y="245" font-size="22" opacity="0.5">⭐</text>
+    <path d="M28 228 Q250 32 472 228" fill="none" stroke="#FF6B6B" stroke-width="13" opacity="0.7" stroke-linecap="round"/>
+    <path d="M54 238 Q250 58 446 238" fill="none" stroke="#FFD700" stroke-width="13" opacity="0.7" stroke-linecap="round"/>
+    <path d="M80 248 Q250 85 420 248" fill="none" stroke="#7EC8A0" stroke-width="13" opacity="0.7" stroke-linecap="round"/>
+    <ellipse cx="250" cy="322" rx="282" ry="68" fill="#a0e0a0"/>
+    <rect x="0" y="278" width="500" height="82" fill="#a0e0a0"/>
+    <rect x="158" y="218" width="164" height="104" rx="10" fill="#c06030"/>
+    <rect x="148" y="202" width="184" height="36" rx="8" fill="#d07040"/>
+    <polygon points="178,202 322,202 382,105 118,105" fill="#ffe066" opacity="0.2"/>
+    <polygon points="198,202 302,202 348,125 152,125" fill="#ffe066" opacity="0.17"/>
+    <text x="185" y="272" font-size="30">🍬🌈💫</text>
+    <line x1="240" y1="202" x2="240" y2="322" stroke="#ffd700" stroke-width="4"/>
+    <line x1="148" y1="220" x2="332" y2="220" stroke="#ffd700" stroke-width="4"/>
+    <circle cx="240" cy="202" r="12" fill="#ffd700"/>
+    <rect x="78"  y="122" width="13" height="7"  rx="3" fill="#FF6B6B" opacity="0.8" transform="rotate(-20,78,122)"/>
+    <rect x="382" y="112" width="11" height="6"  rx="3" fill="#9D81BA" opacity="0.8" transform="rotate(15,382,112)"/>
+    <rect x="118" y="162" width="12" height="6"  rx="3" fill="#60A0E0" opacity="0.8" transform="rotate(35,118,162)"/>
+    <rect x="355" y="152" width="13" height="7"  rx="3" fill="#FFD700" opacity="0.8" transform="rotate(-25,355,152)"/>
+    <circle cx="392" cy="244" r="22" fill="#ffd0a0"/>
+    <ellipse cx="392" cy="272" rx="28" ry="36" fill="#e060a0"/>
+    <path d="M364 258 Q347 243 342 232" stroke="#ffd0a0" stroke-width="13" fill="none" stroke-linecap="round"/>
+    <path d="M420 258 Q437 243 442 232" stroke="#ffd0a0" stroke-width="13" fill="none" stroke-linecap="round"/>
+    <path d="M370 234 Q392 215 414 234 Q417 220 392 215 Q367 215 370 234Z" fill="#c86820"/>
+    <path d="M384 244 Q388 240 392 244" fill="none" stroke="#4a3020" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M392 244 Q396 240 400 244" fill="none" stroke="#4a3020" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M383 253 Q392 261 401 253" fill="#e06080" stroke="#c04060" stroke-width="1.5"/>
+    <text x="83"  y="295" font-size="27">🎉</text>
+    <text x="415" y="148" font-size="25">🎊</text>`
+};
+
+// ═══════════════════════════════════════════════
+//  STORIA FALLBACK (classica, usata se API non disponibile)
+// ═══════════════════════════════════════════════
+const FALLBACK_STORY = {
+  dayTitle: "L'Avventura Classica di Matilde",
+  scenes: {
+    s0: {
+      id:'s0', title:"Il Risveglio Magico 🌸",
+      text:"Matilde apre gli occhi: Luna la gatta sta puntando una <b>Scatola Scintillante</b>, ma serve la Chiave dell'Arcobaleno per aprirla! Dove cerchi?",
+      visual:'bedroom', progress:0,
+      choices:[
+        {text:"Vai nel Giardino Incantato", next:'s1', emoji:'🌳'},
+        {text:"Sali nella Soffitta", next:'s1b', emoji:'📦', points:1}
+      ]
+    },
+    s1b: {
+      id:'s1b', title:"La Soffitta dei Ricordi",
+      text:"Tra vecchi bauli trovi una <b>Stellina d'Oro</b> nascosta in un calzino! Della chiave però nessuna traccia.",
+      visual:'bedroom', progress:1,
+      collectItem:'⭐',
+      choices:[{text:"Corri in giardino!", next:'s1', emoji:'🏃‍♀️'}]
+    },
+    s1: {
+      id:'s1', title:"Il Giardino Incantato 🌼",
+      text:"Il prato sembra fatto di zucchero filato. Uno scoiattolo col papillon ti sfida: <b>'Supera la mia prova e avrai la chiave!'</b>",
+      visual:'garden', progress:2,
+      choices:[
+        {text:"Fai una gara di salti", next:'s2', emoji:'👟', points:1},
+        {text:"Offrigli una nocciolina", next:'s2b', emoji:'🥜', points:2}
+      ]
+    },
+    s2: {
+      id:'s2', title:"Salti Spaziali! 🚀",
+      text:"Salti così in alto che tocchi una nuvola! Lo scoiattolo ti indica il ruscello.",
+      visual:'forest', progress:3,
+      choices:[{text:"Vai al ruscello", next:'s3', emoji:'💧'}]
+    },
+    s2b: {
+      id:'s2b', title:"Che Gentilezza! 🥜",
+      text:"Lo scoiattolo è felicissimo! Ti regala una <b>Stellina</b> e svela: <b>'La chiave è dove l'acqua canta'</b>.",
+      visual:'forest', progress:3,
+      collectItem:'🌟',
+      choices:[{text:"Segui il canto dell'acqua", next:'s3', emoji:'🎶'}]
+    },
+    s3: {
+      id:'s3', title:"Il Ruscello Canterino 💧",
+      text:"Sotto un sasso a forma di cuore, eccola: la <b>Chiave dell'Arcobaleno</b>! Brilla di mille colori.",
+      visual:'stream', progress:4,
+      collectItem:'🗝️',
+      choices:[{text:"Torna a casa!", next:'s4', emoji:'🏠', points:2}]
+    },
+    s4: {
+      id:'s4', title:"Hai Vinto, Matilde! 🎉",
+      text:"Apri la scatola e dentro ci sono i tuoi sogni più belli e tantissime caramelle magiche! Sei stata una vera avventuriera.",
+      visual:'win', progress:5,
+      choices:[{text:"Ricomincia l'avventura ✨", next:'s0', emoji:'🔄', reset:true}]
+    }
+  }
+};
+
+// ═══════════════════════════════════════════════
+//  GENERAZIONE STORIA VIA API ANTHROPIC
+// ═══════════════════════════════════════════════
+const SCENE_VISUALS = ['bedroom','garden','forest','stream','win'];
+
+async function generateDailyStory() {
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  const seed = today.getFullYear() * 10000 + (today.getMonth()+1) * 100 + today.getDate();
+
+  // Temi che ruotano ogni giorno
+  const themes = [
+    "una foresta di cristallo con fate musicanti",
+    "un castello di nuvole abitato da draghi gentili",
+    "un mare di stelle con pesci luminosi",
+    "un villaggio di funghi giganti con gnomi sapienti",
+    "una montagna di cioccolato con animali cuochi",
+    "un giardino dove i fiori parlano e cantano",
+    "una biblioteca magica con libri che prendono vita",
+    "un circo volante con acrobati arcobaleno",
+    "una città sottomarino con sirene amiche",
+    "una foresta autunnale con folletti arancioni"
+  ];
+  const theme = themes[seed % themes.length];
+
+  const prompt = `Sei un narratore di storie magiche per bambini di 4-8 anni. Crea una storia interattiva originale per Matilde, una bambina curiosa con la gatta Luna.
+
+TEMA DI OGGI (${dateStr}): ${theme}
+
+Crea UNA storia con ESATTAMENTE questa struttura JSON (niente altro, solo JSON valido):
+
+{
+  "dayTitle": "Titolo evocativo della storia di oggi (max 40 caratteri)",
+  "scenes": {
+    "s0": {
+      "id": "s0",
+      "title": "Titolo scena 1 con emoji 🌸",
+      "text": "Testo della scena (2-3 frasi, usa <b>grassetto</b> per oggetti importanti). Deve presentare la missione di oggi.",
+      "visual": "bedroom",
+      "progress": 0,
+      "choices": [
+        {"text": "Prima scelta (5-8 parole)", "next": "s1", "emoji": "🌟"},
+        {"text": "Seconda scelta (5-8 parole)", "next": "s1b", "emoji": "🌈", "points": 1}
+      ]
+    },
+    "s1": {
+      "id": "s1",
+      "title": "Titolo scena 2 con emoji",
+      "text": "Testo scena 2 coerente col tema. Introduce un personaggio magico.",
+      "visual": "garden",
+      "progress": 1,
+      "choices": [
+        {"text": "Scelta coraggiosa (5-8 parole)", "next": "s2", "emoji": "⚡", "points": 1},
+        {"text": "Scelta gentile (5-8 parole)", "next": "s2b", "emoji": "💝", "points": 2}
+      ]
+    },
+    "s1b": {
+      "id": "s1b",
+      "title": "Titolo variante con emoji",
+      "text": "Testo alternativo scena 2. Matilde trova qualcosa di speciale.",
+      "visual": "garden",
+      "progress": 1,
+      "collectItem": "⭐",
+      "choices": [
+        {"text": "Continua l'avventura (5-8 parole)", "next": "s2", "emoji": "🚀"}
+      ]
+    },
+    "s2": {
+      "id": "s2",
+      "title": "Titolo scena 3 con emoji",
+      "text": "Testo scena 3. Momento di azione o sfida.",
+      "visual": "forest",
+      "progress": 2,
+      "choices": [
+        {"text": "Avanza verso l'obiettivo (5-8 parole)", "next": "s3", "emoji": "🎯"}
+      ]
+    },
+    "s2b": {
+      "id": "s2b",
+      "title": "Titolo variante scena 3 con emoji",
+      "text": "Testo variante scena 3. Matilde usa gentilezza e ottiene una ricompensa.",
+      "visual": "forest",
+      "progress": 2,
+      "collectItem": "🌟",
+      "choices": [
+        {"text": "Continua verso la meta (5-8 parole)", "next": "s3", "emoji": "🌈"}
+      ]
+    },
+    "s3": {
+      "id": "s3",
+      "title": "Titolo scena finale pre-vittoria con emoji",
+      "text": "Testo scena 4. Matilde trova l'oggetto magico del giorno.",
+      "visual": "stream",
+      "progress": 4,
+      "collectItem": "🗝️",
+      "choices": [
+        {"text": "Torna a casa! (4-6 parole)", "next": "s4", "emoji": "🏠", "points": 2}
+      ]
+    },
+    "s4": {
+      "id": "s4",
+      "title": "Vittoria! 🎉",
+      "text": "Finale emozionante! Matilde ha completato la missione. Descrivi la sua gioia e il premio magico.",
+      "visual": "win",
+      "progress": 5,
+      "choices": [
+        {"text": "Ricomincia l'avventura ✨", "next": "s0", "emoji": "🔄", "reset": true}
+      ]
+    }
+  }
+}
+
+REGOLE IMPORTANTI:
+- Linguaggio semplice e magico, adatto a bambini piccoli
+- Ogni scena max 3 frasi
+- Il tema "${theme}" deve essere chiaramente riconoscibile
+- Usa <b>grassetto</b> per oggetti e nomi speciali
+- Solo JSON valido, nessun testo prima o dopo`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  const raw  = data.content.find(b => b.type === 'text')?.text || '';
+  const json = raw.replace(/```json|```/g,'').trim();
+  return JSON.parse(json);
+}
+
+// ═══════════════════════════════════════════════
+//  CARICAMENTO GIORNALIERO CON CACHE
+// ═══════════════════════════════════════════════
+async function loadDailyStory() {
+  const key = todayKey();
+  dateLabel.textContent = todayLabel();
+
+  // Controlla cache localStorage
+  try {
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      currentStoryData = JSON.parse(cached);
+      dayStrip.textContent = '📖 ' + (currentStoryData.dayTitle || 'Storia del giorno');
+      hideLoading();
+      loadScene('s0');
+      return;
+    }
+  } catch(e) {}
+
+  // Nessuna cache: chiama API
+  if (!API_KEY || API_KEY === 'LA_TUA_API_KEY_QUI') {
+    // API key non configurata: usa fallback silenziosamente
+    loadFallback();
+    return;
+  }
+
+  try {
+    currentStoryData = await generateDailyStory();
+    // Salva in cache
+    try { localStorage.setItem(key, JSON.stringify(currentStoryData)); } catch(e) {}
+    dayStrip.textContent = '📖 ' + (currentStoryData.dayTitle || 'Storia del giorno');
+    hideLoading();
+    loadScene('s0');
+  } catch(err) {
+    console.error('API error:', err);
+    showError(err.message);
+  }
+}
+
+function retryLoad() {
+  errorOvl.classList.remove('show');
+  loadingOvl.classList.remove('hidden');
+  setTimeout(loadDailyStory, 300);
+}
+
+function loadFallback() {
+  errorOvl.classList.remove('show');
+  currentStoryData = FALLBACK_STORY;
+  dayStrip.textContent = '📖 Storia Classica';
+  hideLoading();
+  loadScene('s0');
+}
+
+function hideLoading() {
+  loadingOvl.classList.add('hidden');
+}
+
+function showError(msg) {
+  loadingOvl.classList.add('hidden');
+  document.getElementById('err-msg').textContent =
+    'Ops! ' + (msg || 'Errore di connessione') + '. Riprova o usa la storia classica!';
+  errorOvl.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGAZIONE SCENE
+// ═══════════════════════════════════════════════
+function loadScene(sceneId, opts={}) {
+  const {points=0, reset=false} = opts;
+
+  if (reset) {
+    gameState = {score:0, inventory:[], currentScene:'s0', visitedScenes:new Set()};
+    pointsEl.textContent = '0';
+    invItems.innerHTML   = '🎒';
+    progressBar.style.width = '0%';
+  }
+
+  updateScore(points);
+
+  const scenes = currentStoryData?.scenes || FALLBACK_STORY.scenes;
+  const scene  = scenes[sceneId];
+  if (!scene) return;
+
+  gameState.currentScene = sceneId;
+  gameState.visitedScenes.add(sceneId);
+
+  if (scene.collectItem) addToInventory(scene.collectItem);
+  if (scene.progress !== undefined) updateProgress(scene.progress);
+  if (sceneId === 's4') flashVictory();
+
+  // Transizione
+  contentAnim.classList.add('slide-out');
+
+  setTimeout(() => {
+    // SVG
+    const svgContent = SVG_SCENES[scene.visual] || SVG_SCENES.garden;
+    sceneSVG.classList.add('fade-out');
+    setTimeout(() => {
+      sceneSVG.innerHTML = svgContent;
+      sceneSVG.classList.remove('fade-out');
+    }, 260);
+
+    // Testo
+    titleEl.textContent = scene.title;
+    storyEl.innerHTML   = scene.text;
+
+    // Bottoni
+    choicesEl.innerHTML = '';
+    (scene.choices || []).forEach(choice => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-choice' + (choice.points ? ' gold' : '');
+      btn.innerHTML = `
+        <span class="btn-emoji">${choice.emoji || '✨'}</span>
+        <span>${choice.text}</span>
+        ${choice.points ? `<span class="btn-pts">+${choice.points}⭐</span>` : ''}
+      `;
+      btn.addEventListener('click', () =>
+        loadScene(choice.next, {points: choice.points||0, reset: choice.reset||false})
+      );
+      choicesEl.appendChild(btn);
+    });
+
+    contentAnim.classList.remove('slide-out');
+    contentAnim.classList.add('slide-in');
+    setTimeout(() => contentAnim.classList.remove('slide-in'), 420);
+  }, 260);
+}
+
+// ═══════════════════════════════════════════════
+//  UTILITÀ HUD
+// ═══════════════════════════════════════════════
+function updateScore(delta) {
+  if (!delta) return;
+  gameState.score += delta;
+  pointsEl.textContent = gameState.score;
+  scoreDisplay.classList.remove('pop');
+  void scoreDisplay.offsetWidth;
+  scoreDisplay.classList.add('pop');
+  spawnStar(delta);
+}
+
+function spawnStar(delta) {
+  const r    = scoreDisplay.getBoundingClientRect();
+  const el   = document.createElement('div');
+  el.className  = 'floating-star';
+  el.textContent = '+'+delta+'⭐';
+  el.style.left  = (r.left + r.width/2 - 20)+'px';
+  el.style.top   = (r.bottom + 6)+'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+function addToInventory(emoji) {
+  if (!emoji) return;
+  gameState.inventory.push(emoji);
+  const sp = document.createElement('span');
+  sp.className  = 'inventory-item';
+  sp.textContent = emoji;
+  if (invItems.textContent === '🎒') invItems.textContent = '';
+  invItems.appendChild(sp);
+}
+
+function updateProgress(step) {
+  progressBar.style.width = Math.min((step/TOTAL_SCENES)*100, 100)+'%';
+}
+
+function flashVictory() {
+  victoryOvl.classList.add('show');
+  setTimeout(() => victoryOvl.classList.remove('show'), 800);
+}
+
+// ═══════════════════════════════════════════════
+//  SERVICE WORKER
+// ═══════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ═══════════════════════════════════════════════
+//  AVVIO
+// ═══════════════════════════════════════════════
+loadDailyStory();
+</script>
+</body>
+</html>
